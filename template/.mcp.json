@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "concord-kit": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".agent-kit/concord-mcp.mjs"]
+    }
+  }
+}
