@@ -1,0 +1,7 @@
+{
+  "heartbeatSeconds": 30,
+  "silentSeconds": 90,
+  "hardSeconds": 900,
+  "maxHardSeconds": 7200,
+  "pollMs": 1000
+}
