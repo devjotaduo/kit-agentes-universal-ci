@@ -1,0 +1,7 @@
+{
+  "name": "meu-projeto",
+  "private": true,
+  "scripts": {
+    "kit": "node .agent-kit/kit.mjs"
+  }
+}
