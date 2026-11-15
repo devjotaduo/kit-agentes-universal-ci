@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { closeMerged } from './template/.codex/hooks/concord.mjs';
+
+const ready = '2026-11-10T00:00:00Z';
+const after = '2026-11-12T00:00:00Z';
+const tasks = {
+  minha: { taskId: 'minha', agentId: 'eu', branch: 'feat/minha', version: 4, updatedAt: ready },
+  alheia: { taskId: 'alheia', agentId: 'outro', branch: 'feat/alheia', version: 2, updatedAt: ready },
+  aberta: { taskId: 'aberta', agentId: 'eu', branch: 'feat/aberta', version: 1, updatedAt: ready },
+  semBranch: { taskId: 'semBranch', agentId: 'eu', branch: null, version: 1, updatedAt: ready },
+  // Dois PRs na mesma branch: o antigo é de antes da entrega; só o novo conta.
+  reusada: { taskId: 'reusada', agentId: 'eu', branch: 'feat/reusada', version: 1, updatedAt: ready },
+  semData: { taskId: 'semData', agentId: 'eu', branch: 'feat/minha', version: 1 },
+};
+const pulls = {
+  'feat/minha': [{ url: 'https://github.com/o/r/pull/1', mergedAt: after }],
+  'feat/alheia': [{ url: 'https://github.com/o/r/pull/2', mergedAt: after }],
+  'feat/reusada': [{ url: 'https://github.com/o/r/pull/3', mergedAt: '2026-11-01T00:00:00Z' }, { url: 'https://github.com/o/r/pull/4', mergedAt: 'data inválida' }],
+};
+const merged = (branch) => pulls[branch] ?? [];
+
+function concord({ refuse } = {}) {
+  const finished = [];
+  const call = async (tool, args) => {
+    if (tool === 'finish_work') {
+      if (args.task_id === refuse) throw Error('versão desatualizada');
+      finished.push(args);
+      return { status: 'complete' };
+    }
+    assert.equal(tool, 'inspect_work');
+    return args.task_id ? { task: tasks[args.task_id] }
+      : { review_ready: [...Object.keys(tasks).map((taskId) => ({ taskId })), null], active: [{ taskId: 'viva' }] };
+  };
+  return { call, finished };
+}
+
+test('close-merged fecha só a tarefa do próprio agente com PR mesclado depois da entrega', async () => {
+  const { call, finished } = concord();
+  const result = await closeMerged(call, 'ws', 'eu', merged, false);
+  assert.deepEqual(result.map((item) => [item.task, item.action]), [
+    ['minha', 'closed'], ['alheia', 'owner'], ['aberta', 'kept'], ['semBranch', 'kept'], ['reusada', 'kept'], ['semData', 'kept'],
+  ]);
+  assert.equal(result[1].owner, 'outro');
+  assert.equal(finished.length, 1);
+  const { what_changed: summary, reason, ...sent } = finished[0];
+  assert.deepEqual(sent, { workspace_id: 'ws', agent_id: 'eu', task_id: 'minha', expected_version: 4, outcome: 'complete' });
+  assert.match(summary, /pull\/1/);
+  assert.equal(reason, summary);
+});
+
+test('close-merged --dry-run mostra o que fecharia sem alterar o Concord', async () => {
+  const { call, finished } = concord();
+  const result = await closeMerged(call, 'ws', 'eu', merged, true);
+  assert.equal(result[0].action, 'would-close');
+  assert.equal(finished.length, 0);
+});
+
+test('close-merged não fecha nada quando o GitHub falha, mesmo que a falha venha depois da primeira tarefa', async () => {
+  const { call, finished } = concord();
+  const failing = (branch) => { if (branch === 'feat/aberta') throw Error('gh falhou'); return merged(branch); };
+  await assert.rejects(closeMerged(call, 'ws', 'eu', failing, false), /gh falhou/);
+  assert.equal(finished.length, 0);
+});
+
+test('close-merged registra a recusa de uma tarefa e segue com as demais', async () => {
+  tasks.segunda = { taskId: 'segunda', agentId: 'eu', branch: 'feat/alheia', version: 7, updatedAt: ready };
+  try {
+    const { call, finished } = concord({ refuse: 'minha' });
+    const result = await closeMerged(call, 'ws', 'eu', merged, false);
+    assert.deepEqual(result.filter((item) => ['error', 'closed'].includes(item.action)).map((item) => [item.task, item.action]),
+      [['minha', 'error'], ['segunda', 'closed']]);
+    assert.match(result[0].reason, /versão desatualizada/);
+    assert.deepEqual(finished.map((item) => item.task_id), ['segunda']);
+  } finally { delete tasks.segunda; }
+});
