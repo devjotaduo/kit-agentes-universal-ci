@@ -1,0 +1,5 @@
+/.agent-flow/
+/.concord/
+/template/.agent-flow/*
+!/template/.agent-flow/.gitignore
+/template/.concord/
