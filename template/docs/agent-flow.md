@@ -1,0 +1,39 @@
+# Fluxo de desenvolvimento com agentes
+
+Para um projeto novo, abra o repositório, defina como rodar e verificar a primeira entrega e use `setup-matt-pocock-skills` uma vez para registrar o tracker e as convenções do domínio.
+
+Use as skills versionadas em `.agents/skills/<nome>/SKILL.md`. Se houver uma skill homônima global ou no plugin, escolha a cópia deste repositório. Se ela não aparecer no seletor, leia o arquivo local diretamente. As skills são referência para o método; mantenha spec e tickets locais até haver autorização para gravar no tracker.
+
+| Etapa | Papel | Skills de referência | Evidência para sair da etapa |
+| --- | --- | --- | --- |
+| discover | flow-discovery | grilling ou grill-with-docs; domain-modeling, research e prototype quando úteis | Usuário, problema, resultado e limites. Em fix, reprodução ou evidência da falha e lacunas. Em manutenção, motivo, escopo e como verificar. Em UI, referência à prévia mostrada. |
+| specify | flow-design | codebase-design, to-spec | Comportamentos esperados, exemplos, restrições, interfaces públicas a testar e decisões de teste. ADR só se houver decisão relevante. |
+| slice | flow-design | to-tickets | Primeira entrega de ponta a ponta, critérios observáveis e dependências. Se houver apenas um recorte, registre esse recorte. |
+| implement | flow-build | implement, tdd; diagnosing-bugs se necessário | Mudanças e evidências dos testes aplicáveis. Com TDD, uma falha observada e uma implementação mínima por ciclo; use comportamento público e evite testes que copiam a lógica. |
+| validate | flow-validation | diagnosing-bugs para falhas de validação | Comandos, resultados e limitações. Para UI, fluxo no navegador, interações, estados, capturas e largura estreita quando houver impacto responsivo. Se bloqueado, não avance a etapa. |
+| review | flow-review | code-review | Base comparada, revisão contra critérios e padrões, achados e resolução. O revisor só lê; o implementador corrige. |
+| ready | agente principal | pr | Faça o commit da implementação antes de avançar validate; em ready, só envie o que foi revisado. Use `check` antes de preparar a entrega. Resuma mudança, antes/depois e impacto de merge. Conclua a entrega do jeito que o plano aceito previu, dentro das regras do projeto. |
+
+**Aceite do plano.** Antes de `implement`, o orquestrador mostra o plano ao usuário uma vez e registra o aceite com `approve`. Daí em diante ele decide e conduz até o fim sem pedir nova aprovação, salvo os limites descritos em [orquestração](orquestracao.md#aceite-do-plano-e-condução-até-o-fim).
+
+`feature` percorre a tabela toda. `fix` e `maintenance` vão de discover direto para implement; registre critérios e escopo na descoberta. Se a correção redefinir o produto ou exigir decisões de arquitetura significativas, use o caminho de feature. Em UI, a prévia deve responder à dúvida de design ou mostrar o fluxo pretendido. Protótipos locais podem ficar em `prototypes/` durante a descoberta; mantenha-os fora da entrega final.
+
+O agente principal segue [a orquestração paralela com Concord](orquestracao.md) e passa a cada papel a etapa, os arquivos de entrada, o escopo e a saída esperada. `implement-spec` serve para uma spec grande; mantenha dependências e posse de arquivos visíveis. Use `wayfinder` se houver decisões demais para uma sessão, `triage` para organizar issues, `wizard` para ações humanas, `handoff` para repassar e `retro` para melhorar o processo.
+
+## Comandos
+
+Execute da raiz ou de um subdiretório do projeto; ajuste o caminho até o script se necessário.
+
+- `node .agent-kit/kit.mjs flow status`: mostra a tarefa e a etapa.
+- `node .agent-kit/kit.mjs flow approve <plano.md> "<onde e como o usuário aceitou>"`: registra o aceite do plano. O plano é um Markdown em `docs/work/` ou `.agent-flow/notes/`, distinto das evidências. Sem aceite, nenhuma tarefa entra em implement. Se o arquivo do plano mudar ou sumir, só o plano e as notas locais podem ser editados até um aceite novo; um aceite novo depois da validação volta a tarefa para implement.
+- `node .agent-kit/kit.mjs flow record-parallel <discover|review> <pai> <frente-1> <frente-2> [frente-3] --workspace <workspace>` consulta o Concord antes de sair da descoberta ou revisão. A CLI confirma o vínculo, os resultados registrados e os escopos declarados. O orquestrador verifica que as frentes foram executadas em paralelo. A consulta é obrigatória quando o pedido está vinculado.
+- Em implementação, registre os caminhos autorizados com `node .agent-kit/kit.mjs flow scope --session <ID da sessão> --task <tarefa-Concord> -- arquivo src/**`. Para um pedido vinculado, o comando consulta a posse e os caminhos da tarefa ativa no Concord. Com `CONCORD_AGENT_ID` no ambiente, só a tarefa ativa desse agente conta como posse; a de outro dono exige `--unclaimed`. O início da sessão e a guarda mostram o ID. No Claude Code e no Codex o comando lê o ID do ambiente (`CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID` ou `AGENT_FLOW_SESSION_ID`) e `--session` pode ser omitido. Subagentes do Claude Code recebem no ambiente o ID da sessão principal; se o hook também os identificar assim (não conferido), dividem o escopo com ela.
+- `node .agent-kit/kit.mjs flow advance <etapa-atual> <arquivo.md> [arquivo-ui.md]`: registra o arquivo de saída da etapa e segue para a próxima. O segundo arquivo é obrigatório em UI para discover (prévia) e validate (navegador). Pode ser uma nota com links para as evidências.
+- `node .agent-kit/kit.mjs flow reopen "<motivo>"`: volta a implement a partir de validate, review ou ready e invalida a implementação e as evidências posteriores. Com o pedido Live já encerrado (por exemplo, `done` e depois uma correção pedida no PR) ou com o prazo total vencido, o `reopen` funciona sem `cancel` e sem a posse; o próximo passo exige um pedido novo, assumido com `claim` e vinculado com `link-live <novo-pedido> --checked "<verificação>"`. Para mudança de escopo ou de prévia, encerre com cancel e abra outra tarefa.
+- `node .agent-kit/kit.mjs flow check` exige etapa ready e verifica as evidências e o conteúdo registrado na validação e revisão. Se o conteúdo mudou, reabra o fluxo e valide a versão atual.
+- `node .agent-kit/kit.mjs flow close`: arquiva a tarefa depois de check.
+- `node .agent-kit/kit.mjs flow cancel "<motivo>"`: arquiva uma tarefa interrompida sem marcá-la pronta.
+
+Use um Markdown separado por etapa. Guarde notas locais em `.agent-flow/` ou artefatos compartilhados em `docs/work/`. A primeira pasta é ignorada pelo Git; preserve nela só evidência local sem segredos. Cada worktree tem o próprio estado; este kit não é um tracker nem coordena posse de arquivos entre agentes.
+
+Exemplo: `node .agent-kit/kit.mjs flow new feature "Reservar um horário disponível" --ui`. Após as frentes de descoberta, registre as referências reais do Concord com `record-parallel`. Mostre a prévia, salve a descoberta e a referência à prévia, e rode `node .agent-kit/kit.mjs flow advance discover docs/work/agenda-descoberta.md docs/work/agenda-previa.md`.
