@@ -1,0 +1,48 @@
+{
+  "description": "Guardas locais por etapa do Agent Flow",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();for(;;){const s=p.join(d,'.codex','hooks','flow.mjs');if(f.existsSync(s)){const r=require('node:child_process').spawnSync(process.execPath,[s,'hook'],{cwd:d,stdio:'inherit'});process.exit(r.status===null?1:r.status)}const n=p.dirname(d);if(n===d){console.error('Agent Flow: script do projeto ausente');process.exit(1)}d=n}\"",
+            "timeout": 5,
+            "statusMessage": "Carregando etapa"
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();for(;;){const s=p.join(d,'.agent-kit','kit.mjs');if(f.existsSync(s)){const r=require('node:child_process').spawnSync(process.execPath,[s,'update','notice','codex'],{cwd:d,stdio:'inherit'});process.exit(r.status===null?1:r.status)}const n=p.dirname(d);if(n===d){console.log('{}');process.exit(0)}d=n}\"",
+            "timeout": 5,
+            "statusMessage": "Conferindo versão do kit"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();for(;;){const s=p.join(d,'.codex','hooks','flow.mjs');if(f.existsSync(s)){const r=require('node:child_process').spawnSync(process.execPath,[s,'hook'],{cwd:d,stdio:'inherit'});process.exit(r.status===null?1:r.status)}const n=p.dirname(d);if(n===d){console.error('Agent Flow: script do projeto ausente');process.exit(1)}d=n}\"",
+            "timeout": 5,
+            "statusMessage": "Verificando etapa do patch"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();for(;;){const s=p.join(d,'.codex','hooks','flow.mjs');if(f.existsSync(s)){const r=require('node:child_process').spawnSync(process.execPath,[s,'hook'],{cwd:d,stdio:'inherit'});process.exit(r.status===null?1:r.status)}const n=p.dirname(d);if(n===d){console.error('Agent Flow: script do projeto ausente');process.exit(1)}d=n}\"",
+            "timeout": 5,
+            "statusMessage": "Verificando pendências"
+          }
+        ]
+      }
+    ]
+  }
+}
