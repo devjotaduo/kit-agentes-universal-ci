@@ -1,0 +1,3 @@
+interface:
+  display_name: "Documentation and ADRs"
+  short_description: "Record decisions and keep docs in sync with code"
