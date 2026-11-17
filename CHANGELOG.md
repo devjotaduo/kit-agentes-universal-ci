@@ -1,0 +1,100 @@
+# Changelog
+
+O que muda em cada versão do Kit Universal de agentes, para quem instala ou atualiza. O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e a versão segue o [SemVer](https://semver.org/lang/pt-BR/), do ponto de vista de quem instala: as regras estão em [CONTRIBUTING.md](CONTRIBUTING.md) e na [decisão 0002](docs/decisoes/0002-versionamento-e-release.md).
+
+## [Não lançado]
+
+## [1.3.0] - 2026-11-17
+
+### Adicionado
+
+- `concord stale`: lista as tarefas de outros donos que já têm PR mesclado e ainda retêm arquivos, com o dono, se ele está presente e os arquivos. Só lê; quem fecha é o dono ou o usuário. Sem `CONCORD_AGENT_ID` ele também funciona, mas lista junto as tarefas da própria sessão.
+
+### Corrigido
+
+- `concord holds` falhava sempre com "Cannot access 'holdCovers' before initialization" (issue 50).
+- `concord close-merged` mantinha a tarefa quando ela tinha sido atualizada depois do merge, por exemplo ao ir para `review_ready` com o PR já mesclado. Agora ele também aceita o PR mais recente da branch quando a branch não andou depois dele (no GitHub foi apagada ou aponta para o commit mesclado, e a local, se existir, aponta para o mesmo commit) e a tarefa já existia no merge (issue 57). As tarefas de outros donos saem com a presença do dono e os arquivos retidos.
+- Subagente no Concord: `AGENTS.md`, o papel `flow-build` e as docs dizem para ele não registrar nem fechar tarefa e devolver o relatório ao orquestrador, e para o orquestrador avisar isso no pedido da frente. `concord-chamadas.md` explica a resposta `needs agent_id` (issue 56, em parte).
+
+## [1.2.0] - 2026-11-15
+
+### Adicionado
+
+- `onboard`: na primeira execução do kit num projeto, levanta os fatos (Git, stack, testes, CI, Concord), consulta a origem das skills e cria uma nota para o agente preencher com análise, verificação e estratégia. `onboard done` só aceita a nota preenchida. O início da sessão e o `flow new` avisam enquanto isso faltar, sem recusar. Um projeto que já usava o kit vê o aviso uma vez depois de atualizar; uma worktree vale pelo registro da pasta principal.
+- `skills upstream`: compara as skills distribuídas com a origem (mattpocock/skills e addyosmani/agent-skills) e mostra versão nova, commits à frente e PRs e issues abertos.
+
+## [1.1.0] - 2026-11-15
+
+A versão pula de 0.8.15 para 1.1.0. A tag `v1.0.0` é de 08/11/2026, antes de haver regra de versão, e a constante do kit ficou abaixo dela. A partir daqui, a versão do kit e a tag são a mesma.
+
+### Adicionado
+
+- Skills `git-workflow-and-versioning` e `documentation-and-adrs`, de addyosmani/agent-skills 0.6.16 (MIT), para versionamento, release e registro de decisões nos projetos. Cada uma tem uma seção "Neste kit" com o que muda por causa da guarda e do PR em rascunho.
+- `CHANGELOG.md`, `CONTRIBUTING.md` e um teste que falha quando a versão do kit não tem entrada no changelog.
+- Decisões numeradas em `docs/decisoes/` (0001 a 0005) e o mapa de arquitetura em `docs/arquitetura.md`.
+- Guia de uso em `docs/guia-de-uso.md`, com conceitos, onze casos de uso e as recusas mais comuns.
+
+### Para quem atualiza
+
+- Um instalador antigo (0.8.x) recusa um projeto já em 1.1.0 com "Manifesto de instalação inválido", porque não conhece os arquivos das skills novas. Ele não altera nada. Para atualizar ou reinstalar, use o instalador da 1.1.0 ou mais novo.
+
+## [0.8.15] - 2026-11-15
+
+### Alterado
+
+- Doc: uma frente fechada com `handoff` é recusada no `record-parallel`; a evidência em `docs/work/` pode ser commitada depois da revisão; o revisor sem tela fecha a própria frente com `complete`.
+
+## [0.8.14] - 2026-11-15
+
+### Corrigido
+
+- O instalador copia os `.sh` da raiz das skills. Sem isso, a skill `wizard` ficava sem o `template.sh`.
+
+## [0.8.13] - 2026-11-15
+
+### Alterado
+
+- `fix` e `maintenance` aceitam uma frente em descoberta e em revisão. `feature` continua exigindo duas. O máximo é três.
+
+## [0.8.12] - 2026-11-15
+
+### Adicionado
+
+- Seção "Hermes" em `docs/orquestracao.md`, com os limites da guarda medidos num laboratório: hook sem aceite no modo sem tela, modo seguro e hook que reescreve argumentos.
+
+## [0.8.11] - 2026-11-15
+
+### Adicionado
+
+- Receita do revisor com identidade própria no Concord, sem tela, com `claude -p`.
+
+## [0.8.10] - 2026-11-15
+
+### Alterado
+
+- `live claim` recusado diz a causa: pedido encerrado, prazo total ou posse ainda válida.
+- `flow scope --task` sem pedido Live diz como vincular um.
+- Doc: os arquivos do `skills add` precisam de commit antes do `validate`.
+
+## [0.8.9] - 2026-11-15
+
+### Corrigido
+
+- As chamadas ao MCP do Concord saem uma por vez. Chamadas simultâneas travavam o servidor e viravam "Tempo esgotado ao consultar o MCP Concord".
+
+## [0.8.8] - 2026-11-15
+
+### Alterado
+
+- Mensagens mais claras em `scope --task` sem pedido Live, em frente sem resultado, em padrão inválido no `expected_files`, no `close` com pedido Live e na posse expirada.
+- Doc: em qual `advance` o aceite do plano é exigido; `kit.mjs git push` só envia para `origin` no GitHub.
+
+## [0.8.7] - 2026-11-15
+
+### Corrigido
+
+- `.concord/`, que o Concord Cloud grava em cada projeto, fica fora do snapshot e da trava do commit. O `setup` cria o `.concord/.gitignore`.
+
+## 0.8.6 e anteriores
+
+De 08/11 a 14/11/2026, sem changelog. O que entrou está no histórico do Git e nos planos da raiz: [melhorias](PLANO-DE-MELHORIAS.md) (KIT-01 a KIT-07), [regras globais](PLANO-REGRAS-GLOBAIS.md) (KIT-08 a KIT-16) e [uso real](PLANO-USO-REAL.md) (KIT-17 a KIT-28).
