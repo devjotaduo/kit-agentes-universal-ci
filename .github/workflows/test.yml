@@ -1,0 +1,41 @@
+name: test
+on:
+  push:
+    branches: ['ci/**']
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Os testes criam repositórios e commits em pastas temporárias.
+      - run: |
+          git config --global user.name "kit-ci"
+          git config --global user.email "kit-ci@users.noreply.github.com"
+          git config --global init.defaultBranch main
+      - run: node --test
+  # Regras, skills e configurações dos agentes, conferidas pelo ai-rulez (versão fixa; ele não vira dependência do kit).
+  # Barra só ameaça no scan e erro no validate: os avisos de caminho inexistente (AR401) apontam pastas que as skills
+  # criam no projeto instalado, e o scan é sinal fraco (marca skills benignas). Os avisos ficam no log.
+  # Roda em template/, onde ficam os arquivos dos agentes; fora de um repositório git o ai-rulez não acha nada.
+  ai-rulez:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npx -y ai-rulez@5.13.4 scan --fail-on threat
+        working-directory: template
+      - run: npx -y ai-rulez@5.13.4 validate --fail-on error
+        working-directory: template
