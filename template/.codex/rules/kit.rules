@@ -1,0 +1,74 @@
+# Regras de comando do kit para o Codex, a partir das do .claude/settings.json.
+# O Codex casa só o começo do comando (prefixo de argumentos) e a regra mais restritiva vence. Um `allow` aqui
+# aprova o comando sem perguntar, e o Codex pode rodá-lo fora do sandbox: por isso a lista é mais curta que a do
+# Claude Code. Arquivo do kit: o `update` o substitui. Regras próprias do projeto vão em outro arquivo desta pasta.
+#
+# Fora daqui, de propósito:
+# - Liberações que um prefixo alargaria: `node .agent-kit/kit.mjs` inteiro (o kit faz `git push`, abre PR e instala
+#   skills), `npm run kit`, `node --test` (`--import` executa código), `gh auth status` (`--show-token`),
+#   `git branch` (apagaria branch), `git fetch` (refspec escreve branch local) e `git diff`/`log`/`show`
+#   (`--output` grava arquivo). As leituras locais já rodam no sandbox sem pedir.
+# - O que o Claude Code pede antes de rodar (commit, push, merge, `gh api`...): no Codex isso segue a
+#   `approval_policy` de cada usuário.
+# - Ferramentas de MCP: no Codex elas não têm regra por nome sem trocar o `sandbox_mode` por um perfil de permissões.
+#
+# Os bloqueios abaixo também são só de prefixo: `git push origin main --force`, `git -C . reset --hard` ou
+# `rm -r -f` com outra ordem escapam deles. A proteção para o que escapa é a `approval_policy` e o sandbox.
+
+# Leituras liberadas sem pedir.
+prefix_rule(pattern = ["node", ".agent-kit/kit.mjs", "flow", "status"], decision = "allow")
+prefix_rule(pattern = ["node", ".agent-kit/kit.mjs", "doctor"], decision = "allow")
+prefix_rule(pattern = ["node", ".agent-kit/kit.mjs", "update", "check"], decision = "allow")
+prefix_rule(pattern = ["node", ".agent-kit/kit.mjs", "concord", "holds"], decision = "allow")
+prefix_rule(pattern = ["node", ".agent-kit/kit.mjs", "concord", "stale"], decision = "allow")
+prefix_rule(pattern = ["git", "status"], decision = "allow")
+prefix_rule(pattern = ["git", "branch", "--show-current"], decision = "allow")
+prefix_rule(pattern = ["git", "worktree", "list"], decision = "allow")
+prefix_rule(pattern = ["git", "rev-parse"], decision = "allow")
+prefix_rule(pattern = ["gh", "repo", "view"], decision = "allow")
+prefix_rule(pattern = ["gh", "pr", "view"], decision = "allow")
+prefix_rule(pattern = ["gh", "pr", "list"], decision = "allow")
+prefix_rule(pattern = ["gh", "pr", "diff"], decision = "allow")
+prefix_rule(pattern = ["gh", "pr", "checks"], decision = "allow")
+prefix_rule(pattern = ["gh", "issue", "list"], decision = "allow")
+prefix_rule(pattern = ["gh", "issue", "view"], decision = "allow")
+prefix_rule(pattern = ["concord", "status"], decision = "allow")
+prefix_rule(pattern = ["concord", "tasks"], decision = "allow")
+prefix_rule(pattern = ["concord", "who"], decision = "allow")
+prefix_rule(pattern = ["concord", "adapters", "status"], decision = "allow")
+
+# Bloqueados, a partir dos bloqueios do Claude Code.
+prefix_rule(pattern = ["npx", "skills"], decision = "forbidden")
+prefix_rule(pattern = ["npx", "-y", "skills"], decision = "forbidden")
+prefix_rule(pattern = ["npx", "--yes", "skills"], decision = "forbidden")
+prefix_rule(pattern = ["npm", "install", "-g"], decision = "forbidden")
+prefix_rule(pattern = ["npm", "i", "-g"], decision = "forbidden")
+prefix_rule(pattern = ["npm", "install", "--global"], decision = "forbidden")
+prefix_rule(pattern = ["npm", "i", "--global"], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "--force"], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "--force-with-lease"], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "-f"], decision = "forbidden")
+prefix_rule(pattern = ["git", "reset", "--hard"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-f"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "--force"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-d"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-x"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-fd"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-df"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-ffd"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-fx"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-fdx"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-xdf"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean", "-dfx"], decision = "forbidden")
+prefix_rule(pattern = ["git", "branch", "-D"], decision = "forbidden")
+prefix_rule(pattern = ["git", "branch", "--delete", "--force"], decision = "forbidden")
+prefix_rule(pattern = ["git", "checkout", "--"], decision = "forbidden")
+prefix_rule(pattern = ["git", "checkout", "-f"], decision = "forbidden")
+prefix_rule(pattern = ["git", "switch", "--discard-changes"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-rf"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-fr"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-Rf"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-r", "-f"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "--recursive", "--force"], decision = "forbidden")
+prefix_rule(pattern = ["gh", "repo", "delete"], decision = "forbidden")
+prefix_rule(pattern = ["gh", "repo", "create"], decision = "forbidden")
