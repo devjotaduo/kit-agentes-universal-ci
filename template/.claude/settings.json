@@ -1,0 +1,148 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.agent-kit/kit.mjs",
+              "hook",
+              "claude"
+            ],
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.agent-kit/kit.mjs",
+              "update",
+              "notice",
+              "claude"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.agent-kit/kit.mjs",
+              "hook",
+              "claude"
+            ],
+            "onFailure": "block",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.agent-kit/kit.mjs",
+              "hook",
+              "claude"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(node .agent-kit/kit.mjs *)",
+      "Bash(npm run kit *)",
+      "Bash(node --test)",
+      "Bash(node --test *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff)",
+      "Bash(git diff *)",
+      "Bash(git log)",
+      "Bash(git log *)",
+      "Bash(git show)",
+      "Bash(git show *)",
+      "Bash(git branch)",
+      "Bash(git branch --list*)",
+      "Bash(git branch --show-current)",
+      "Bash(git fetch)",
+      "Bash(git fetch origin)",
+      "Bash(git fetch --prune)",
+      "Bash(git fetch --prune origin)",
+      "Bash(git worktree list*)",
+      "Bash(git rev-parse *)",
+      "Bash(gh auth status*)",
+      "Bash(gh repo view*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh issue list*)",
+      "Bash(gh issue view*)",
+      "Bash(concord status*)",
+      "Bash(concord tasks*)",
+      "Bash(concord who*)",
+      "Bash(concord adapters status*)",
+      "mcp__concord-kit__*",
+      "mcp__github-kit__*",
+      "mcp__concord__inspect_work",
+      "mcp__ccd_session_mgmt__list_events",
+      "mcp__ccd_session_mgmt__list_sessions",
+      "mcp__ccd_pr__get_status",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_network_requests"
+    ],
+    "ask": [
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git switch*)",
+      "Bash(git checkout*)",
+      "Bash(git reset*)",
+      "Bash(git rebase*)",
+      "Bash(git merge*)",
+      "Bash(git tag*)",
+      "Bash(git stash*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr ready*)",
+      "Bash(gh issue create*)",
+      "Bash(gh api*)"
+    ],
+    "deny": [
+      "Bash(npx skills*)",
+      "Bash(npx -y skills*)",
+      "Bash(npm install -g*)",
+      "Bash(npm i -g*)",
+      "Bash(npm install --global*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git clean -d*)",
+      "Bash(git clean -x*)",
+      "Bash(git branch -D *)",
+      "Bash(git checkout -- *)",
+      "Bash(git switch --discard-changes*)",
+      "Bash(rm -rf *)",
+      "Bash(gh repo delete*)",
+      "Bash(gh repo create*)",
+      "Bash(git * --output*)"
+    ]
+  }
+}
