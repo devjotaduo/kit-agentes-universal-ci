@@ -59,6 +59,9 @@ jobs:
             /*.test.mjs
       - name: Conferir que os testes vieram
         run: ls src/*.test.mjs > /dev/null && test -f src/install.mjs && test -d src/template
+      # O upload segue links: um link no commit levaria arquivos do runner, ou o .git, para o artefato público.
+      - name: Recusar link simbólico no commit
+        run: '[ -z "$(find src -path src/.git -prune -o -type l -print)" ] || { echo "link simbólico no commit"; exit 1; }'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fonte
@@ -113,7 +116,8 @@ jobs:
   # Publica o resultado no commit do repositório privado. Este job não baixa nem executa o código testado.
   report:
     needs: [fetch, test, ai-rulez]
-    if: always()
+    # Execução cancelada não publica nada; falha em qualquer job publica failure.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ci
