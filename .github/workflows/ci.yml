@@ -13,7 +13,7 @@ permissions: {}
 env:
   SOURCE_OWNER: devjotaduo
   SOURCE_REPO: kit-agentes-universal
-  APP_CLIENT_ID: lv23lifuT0yL7AnORmBK
+  APP_ID: 5895369
 jobs:
   test:
     strategy:
@@ -31,7 +31,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app
         with:
-          client-id: ${{ env.APP_CLIENT_ID }}
+          app-id: ${{ env.APP_ID }}
           private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
           owner: ${{ env.SOURCE_OWNER }}
           repositories: ${{ env.SOURCE_REPO }}
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app
         with:
-          client-id: ${{ env.APP_CLIENT_ID }}
+          app-id: ${{ env.APP_ID }}
           private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
           owner: ${{ env.SOURCE_OWNER }}
           repositories: ${{ env.SOURCE_REPO }}
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app
         with:
-          client-id: ${{ env.APP_CLIENT_ID }}
+          app-id: ${{ env.APP_ID }}
           private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
           owner: ${{ env.SOURCE_OWNER }}
           repositories: ${{ env.SOURCE_REPO }}
