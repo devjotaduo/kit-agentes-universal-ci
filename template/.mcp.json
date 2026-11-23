@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "concord-kit": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".agent-kit/concord-mcp.mjs"]
+    },
+    "github-kit": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".codex/hooks/github-mcp.mjs", "start"]
+    }
+  }
+}
