@@ -1,0 +1,133 @@
+# CI do Kit Universal de agentes. Este repositório guarda só este workflow: o código testado é baixado do
+# repositório privado, no commit informado, com um token de curta duração do GitHub App kit-agentes-ci,
+# e o resultado volta para aquele commit como check run "ci-publico", publicado pelo mesmo App.
+name: ci
+run-name: ci ${{ inputs.sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit do repositório privado (40 caracteres hexadecimais)
+        required: true
+permissions: {}
+env:
+  SOURCE_OWNER: devjotaduo
+  SOURCE_REPO: kit-agentes-universal
+  APP_CLIENT_ID: lv23lifuT0yL7AnORmBK
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Conferir o commit informado
+        shell: bash
+        env:
+          SHA: ${{ inputs.sha }}
+        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ env.APP_CLIENT_ID }}
+          private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
+          owner: ${{ env.SOURCE_OWNER }}
+          repositories: ${{ env.SOURCE_REPO }}
+          permission-contents: read
+      # Só o que os testes precisam; planos e README não entram.
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
+          ref: ${{ inputs.sha }}
+          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /template/
+            /examples/
+            /scripts/medir-uso.mjs
+            /scripts/publish-release.mjs
+            /install.mjs
+            /.gitignore
+            /CHANGELOG.md
+            /*.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Os testes criam repositórios e commits em pastas temporárias.
+      - shell: bash
+        run: |
+          git config --global user.name "kit-ci"
+          git config --global user.email "kit-ci@users.noreply.github.com"
+          git config --global init.defaultBranch main
+      - run: node --test
+  # Regras, skills e configurações dos agentes, conferidas pelo ai-rulez (versão fixa).
+  ai-rulez:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Conferir o commit informado
+        env:
+          SHA: ${{ inputs.sha }}
+        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ env.APP_CLIENT_ID }}
+          private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
+          owner: ${{ env.SOURCE_OWNER }}
+          repositories: ${{ env.SOURCE_REPO }}
+          permission-contents: read
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
+          ref: ${{ inputs.sha }}
+          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /template/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npx -y ai-rulez@5.13.4 scan --fail-on threat
+        working-directory: template
+      - run: npx -y ai-rulez@5.13.4 validate --fail-on error
+        working-directory: template
+  # Publica o resultado no commit do repositório privado. Este job não baixa nem executa o código testado.
+  report:
+    needs: [test, ai-rulez]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Conferir o commit informado
+        env:
+          SHA: ${{ inputs.sha }}
+        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ env.APP_CLIENT_ID }}
+          private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
+          owner: ${{ env.SOURCE_OWNER }}
+          repositories: ${{ env.SOURCE_REPO }}
+          permission-checks: write
+      - name: Publicar o check run
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SHA: ${{ inputs.sha }}
+          OK: ${{ needs.test.result == 'success' && needs.ai-rulez.result == 'success' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SUMMARY: "node --test: ${{ needs.test.result }}; ai-rulez: ${{ needs.ai-rulez.result }}"
+        run: |
+          conclusion=failure
+          [ "$OK" = "true" ] && conclusion=success
+          gh api "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs" \
+            -f name=ci-publico -f head_sha="$SHA" -f status=completed -f conclusion="$conclusion" \
+            -f details_url="$RUN_URL" \
+            -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
+            -f "output[summary]=$SUMMARY" > /dev/null
+          echo "ci-publico: $conclusion em $SHA"
