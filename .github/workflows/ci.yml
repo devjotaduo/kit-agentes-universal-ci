@@ -1,6 +1,11 @@
 # CI do Kit Universal de agentes. Este repositório guarda só este workflow: o código testado é baixado do
 # repositório privado, no commit informado, com um token de curta duração do GitHub App kit-agentes-ci,
 # e o resultado volta para aquele commit como check run "ci-publico", publicado pelo mesmo App.
+#
+# A chave do App só existe nos jobs "fetch" e "report", que não executam nada do commit. Os jobs que executam
+# o código ("test" e "ai-rulez") recebem os arquivos por artefato e não referenciam nenhum segredo: um teste
+# malicioso não tem chave nem token para ler da memória do runner.
+# O artefato fica visível neste repositório público por um dia: é o mesmo subconjunto que antes era commitado aqui.
 name: ci
 run-name: ci ${{ inputs.sha }}
 on:
@@ -15,20 +20,17 @@ env:
   SOURCE_REPO: kit-agentes-universal
   APP_ID: 5895369
 jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+  # Único job que lê o repositório privado. Não executa nada do que baixa.
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ci
     steps:
       - name: Conferir o commit informado
-        shell: bash
         env:
           SHA: ${{ inputs.sha }}
         run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app
         with:
           app-id: ${{ env.APP_ID }}
@@ -37,12 +39,14 @@ jobs:
           repositories: ${{ env.SOURCE_REPO }}
           permission-contents: read
       # Só o que os testes precisam; planos e README não entram.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
           ref: ${{ inputs.sha }}
           token: ${{ steps.app.outputs.token }}
           persist-credentials: false
+          path: src
+          filter: blob:none
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /template/
@@ -53,61 +57,72 @@ jobs:
             /.gitignore
             /CHANGELOG.md
             /*.test.mjs
-      - uses: actions/setup-node@v4
+      - name: Conferir que os testes vieram
+        run: ls src/*.test.mjs > /dev/null && test -f src/install.mjs && test -d src/template
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fonte
+          retention-days: 1
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            src/
+            !src/.git/
+  test:
+    needs: fetch
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: fonte
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-      # Os testes criam repositórios e commits em pastas temporárias.
+      # Os testes criam repositórios e commits em pastas temporárias e esperam rodar dentro de um repositório.
       - shell: bash
         run: |
           git config --global user.name "kit-ci"
           git config --global user.email "kit-ci@users.noreply.github.com"
           git config --global init.defaultBranch main
+          git init -q && git add -A && git commit -q -m "ci: ${{ github.run_id }}"
+          ls *.test.mjs > /dev/null
       - run: node --test
   # Regras, skills e configurações dos agentes, conferidas pelo ai-rulez (versão fixa).
   ai-rulez:
+    needs: fetch
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Conferir o commit informado
-        env:
-          SHA: ${{ inputs.sha }}
-        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
-      - uses: actions/create-github-app-token@v3
-        id: app
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          app-id: ${{ env.APP_ID }}
-          private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
-          owner: ${{ env.SOURCE_OWNER }}
-          repositories: ${{ env.SOURCE_REPO }}
-          permission-contents: read
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
-          ref: ${{ inputs.sha }}
-          token: ${{ steps.app.outputs.token }}
-          persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /template/
-      - uses: actions/setup-node@v4
+          name: fonte
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
+      # Fora de um repositório git o ai-rulez não acha nada.
+      - run: git init -q
       - run: npx -y ai-rulez@5.13.4 scan --fail-on threat
         working-directory: template
       - run: npx -y ai-rulez@5.13.4 validate --fail-on error
         working-directory: template
   # Publica o resultado no commit do repositório privado. Este job não baixa nem executa o código testado.
   report:
-    needs: [test, ai-rulez]
+    needs: [fetch, test, ai-rulez]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    environment: ci
     steps:
       - name: Conferir o commit informado
         env:
           SHA: ${{ inputs.sha }}
         run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app
         with:
           app-id: ${{ env.APP_ID }}
@@ -119,7 +134,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           SHA: ${{ inputs.sha }}
-          OK: ${{ needs.test.result == 'success' && needs.ai-rulez.result == 'success' }}
+          OK: ${{ needs.fetch.result == 'success' && needs.test.result == 'success' && needs.ai-rulez.result == 'success' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SUMMARY: "node --test: ${{ needs.test.result }}; ai-rulez: ${{ needs.ai-rulez.result }}"
         run: |
