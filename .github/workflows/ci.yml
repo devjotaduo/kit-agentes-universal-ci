@@ -185,9 +185,14 @@ jobs:
           # O head_sha só existe na criação: a atualização não muda o commit do check.
           target=(-X POST "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs" -f head_sha="$SHA")
           if [[ "$CHECK" =~ ^[0-9]+$ ]]; then target=(-X PATCH "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs/$CHECK"); fi
-          gh api "${target[@]}" \
-            -f name=ci-publico -f status=completed -f conclusion="$conclusion" \
-            -f details_url="$RUN_URL" \
-            -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
-            -f "output[summary]=$SUMMARY" > /dev/null
+          # Até 3 tentativas: um erro passageiro da API deixaria o check aberto pelo "start" em andamento.
+          for try in 1 2 3; do
+            gh api "${target[@]}" \
+              -f name=ci-publico -f status=completed -f conclusion="$conclusion" \
+              -f details_url="$RUN_URL" \
+              -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
+              -f "output[summary]=$SUMMARY" > /dev/null && break
+            [ "$try" = 3 ] && { echo "não foi possível concluir o check ci-publico"; exit 1; }
+            sleep 10
+          done
           echo "ci-publico: $conclusion em $SHA"
