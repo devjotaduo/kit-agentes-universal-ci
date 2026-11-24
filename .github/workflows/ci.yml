@@ -2,7 +2,7 @@
 # repositório privado, no commit informado, com um token de curta duração do GitHub App kit-agentes-ci,
 # e o resultado volta para aquele commit como check run "ci-publico", publicado pelo mesmo App.
 #
-# A chave do App só existe nos jobs "fetch" e "report", que não executam nada do commit. Os jobs que executam
+# A chave do App só existe nos jobs "start", "fetch" e "report", que não executam nada do commit. Os jobs que executam
 # o código ("test" e "ai-rulez") recebem os arquivos por artefato e não referenciam nenhum segredo: um teste
 # malicioso não tem chave nem token para ler da memória do runner.
 # O artefato fica visível neste repositório público por um dia: é o mesmo subconjunto que antes era commitado aqui.
@@ -20,6 +20,39 @@ env:
   SOURCE_REPO: kit-agentes-universal
   APP_ID: 5895369
 jobs:
+  # Abre o check "ci-publico" como em andamento, para o PR mostrar a execução desde o começo. Não baixa nem executa o código.
+  start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ci
+    outputs:
+      check: ${{ steps.check.outputs.id }}
+    steps:
+      - name: Conferir o commit informado
+        env:
+          SHA: ${{ inputs.sha }}
+        run: '[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido"; exit 1; }'
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        id: app
+        with:
+          app-id: ${{ env.APP_ID }}
+          private-key: ${{ secrets.KIT_CI_PRIVATE_KEY }}
+          owner: ${{ env.SOURCE_OWNER }}
+          repositories: ${{ env.SOURCE_REPO }}
+          permission-checks: write
+      - name: Abrir o check run
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SHA: ${{ inputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          id="$(gh api "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs" \
+            -f name=ci-publico -f head_sha="$SHA" -f status=in_progress -f details_url="$RUN_URL" \
+            -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
+            -f "output[summary]=Em andamento." --jq .id)"
+          [[ "$id" =~ ^[0-9]+$ ]] || { echo "resposta sem id do check"; exit 1; }
+          echo "id=$id" >> "$GITHUB_OUTPUT"
   # Único job que lê o repositório privado. Não executa nada do que baixa.
   fetch:
     runs-on: ubuntu-latest
@@ -115,9 +148,10 @@ jobs:
         working-directory: template
   # Publica o resultado no commit do repositório privado. Este job não baixa nem executa o código testado.
   report:
-    needs: [fetch, test, ai-rulez]
-    # Execução cancelada não publica nada; falha em qualquer job publica failure.
-    if: ${{ !cancelled() }}
+    needs: [start, fetch, test, ai-rulez]
+    # Roda sempre, para o check aberto pelo "start" não ficar em andamento: cancelamento publica cancelled
+    # (que não satisfaz o check exigido) e falha em qualquer job publica failure.
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ci
@@ -139,14 +173,26 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           SHA: ${{ inputs.sha }}
           OK: ${{ needs.fetch.result == 'success' && needs.test.result == 'success' && needs.ai-rulez.result == 'success' }}
+          CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          CHECK: ${{ needs.start.outputs.check }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SUMMARY: "node --test: ${{ needs.test.result }}; ai-rulez: ${{ needs.ai-rulez.result }}"
         run: |
           conclusion=failure
+          [ "$CANCELLED" = "true" ] && conclusion=cancelled
           [ "$OK" = "true" ] && conclusion=success
-          gh api "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs" \
-            -f name=ci-publico -f head_sha="$SHA" -f status=completed -f conclusion="$conclusion" \
-            -f details_url="$RUN_URL" \
-            -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
-            -f "output[summary]=$SUMMARY" > /dev/null
+          # Conclui o check aberto pelo "start"; se ele não abriu, cria um já concluído.
+          # O head_sha só existe na criação: a atualização não muda o commit do check.
+          target=(-X POST "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs" -f head_sha="$SHA")
+          if [[ "$CHECK" =~ ^[0-9]+$ ]]; then target=(-X PATCH "repos/$SOURCE_OWNER/$SOURCE_REPO/check-runs/$CHECK"); fi
+          # Até 3 tentativas: um erro passageiro da API deixaria o check aberto pelo "start" em andamento.
+          for try in 1 2 3; do
+            gh api "${target[@]}" \
+              -f name=ci-publico -f status=completed -f conclusion="$conclusion" \
+              -f details_url="$RUN_URL" \
+              -f "output[title]=node --test (Linux e Windows) e ai-rulez" \
+              -f "output[summary]=$SUMMARY" > /dev/null && break
+            [ "$try" = 3 ] && { echo "não foi possível concluir o check ci-publico"; exit 1; }
+            sleep 10
+          done
           echo "ci-publico: $conclusion em $SHA"
