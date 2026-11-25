@@ -84,6 +84,7 @@ jobs:
           sparse-checkout: |
             /template/
             /examples/
+            /simulacoes/
             /scripts/medir-uso.mjs
             /scripts/vigia-fornecedores.mjs
             /scripts/publish-release.mjs
