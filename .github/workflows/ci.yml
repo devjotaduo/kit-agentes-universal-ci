@@ -91,8 +91,8 @@ jobs:
             /.gitignore
             /CHANGELOG.md
             /*.test.mjs
-            # simulacoes-harness.test.mjs exige simulacoes/isolado.sh e o Concord real no CI: roda em job próprio.
-            !/simulacoes-harness.test.mjs
+            # Os testes simulacoes*.test.mjs exigem simulacoes/isolado.sh e o Concord real no CI: rodam em job próprio.
+            !/simulacoes*.test.mjs
       - name: Conferir que os testes vieram
         run: ls src/*.test.mjs > /dev/null && test -f src/install.mjs && test -d src/template
       # O upload segue links: um link no commit levaria arquivos do runner, ou o .git, para o artefato público.
