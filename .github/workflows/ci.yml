@@ -16,7 +16,7 @@ on:
         required: true
 permissions: {}
 env:
-  SOURCE_OWNER: devjotaduo
+  SOURCE_OWNER: jotaduo2-eng
   SOURCE_REPO: kit-agentes-universal
   APP_ID: 5895369
 jobs:
