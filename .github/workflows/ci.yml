@@ -85,6 +85,7 @@ jobs:
             /template/
             /examples/
             /scripts/medir-uso.mjs
+            /scripts/vigia-fornecedores.mjs
             /scripts/publish-release.mjs
             /install.mjs
             /.gitignore
